@@ -665,6 +665,19 @@ public class MediaRouter {
      */
     public static final int CALLBACK_FLAG_PASSIVE_DISCOVERY = 1 << 3;
 
+    /**
+     * Flag for {@link #isRouteAvailable}: Ignore the default route.
+     * <p>
+     * This flag is used to determine whether a matching non-default route is available.
+     * This constraint may be used to decide whether to offer the route chooser dialog
+     * to the user.  There is no point offering the chooser if there are no
+     * non-default choices.
+     * </p>
+     *
+     * @hide Future API ported from support library.  Revisit this later.
+     */
+    public static final int AVAILABILITY_FLAG_IGNORE_DEFAULT_ROUTE = 1 << 0;
+
     // Maps application contexts
     static final HashMap<Context, MediaRouter> sRouters = new HashMap<Context, MediaRouter>();
 
@@ -715,6 +728,11 @@ public class MediaRouter {
         return sStatic.mSystemCategory;
     }
 
+    /** @hide */
+    public RouteInfo getSelectedRoute() {
+        return getSelectedRoute(ROUTE_TYPE_ANY);
+    }
+
     /**
      * Return the currently selected route for any of the given types
      *
@@ -735,6 +753,38 @@ public class MediaRouter {
         // If the above didn't match and we're not specifically asking for a user route,
         // consider the default selected.
         return sStatic.mDefaultAudioVideo;
+    }
+
+    /**
+     * Returns true if there is a route that matches the specified types.
+     * <p>
+     * This method returns true if there are any available routes that match the types
+     * regardless of whether they are enabled or disabled.  If the
+     * {@link #AVAILABILITY_FLAG_IGNORE_DEFAULT_ROUTE} flag is specified, then
+     * the method will only consider non-default routes.
+     * </p>
+     *
+     * @param types The types to match.
+     * @param flags Flags to control the determination of whether a route may be available.
+     * May be zero or {@link #AVAILABILITY_FLAG_IGNORE_DEFAULT_ROUTE}.
+     * @return True if a matching route may be available.
+     *
+     * @hide Future API ported from support library.  Revisit this later.
+     */
+    public boolean isRouteAvailable(int types, int flags) {
+        final int count = sStatic.mRoutes.size();
+        for (int i = 0; i < count; i++) {
+            RouteInfo route = sStatic.mRoutes.get(i);
+            if (route.matchesTypes(types)) {
+                if ((flags & AVAILABILITY_FLAG_IGNORE_DEFAULT_ROUTE) == 0
+                        || route != sStatic.mDefaultAudioVideo) {
+                    return true;
+                }
+            }
+        }
+
+        // It doesn't look like we can find a matching route right now.
+        return false;
     }
 
     /**
@@ -835,7 +885,7 @@ public class MediaRouter {
     static void selectRouteStatic(int types, RouteInfo route, boolean explicit) {
         final RouteInfo oldRoute = sStatic.mSelectedRoute;
         if (oldRoute == route) return;
-        if ((route.getSupportedTypes() & types) == 0) {
+        if (!route.matchesTypes(types)) {
             Log.w(TAG, "selectRoute ignored; cannot select route with supported types " +
                     typesToString(route.getSupportedTypes()) + " into route types " +
                     typesToString(types));
@@ -985,7 +1035,7 @@ public class MediaRouter {
                     break;
                 }
             }
-            if (info == sStatic.mSelectedRoute) {
+            if (info.isSelected()) {
                 // Removing the currently selected route? Select the default before we remove it.
                 selectDefaultRouteStatic();
             }
@@ -1315,7 +1365,7 @@ public class MediaRouter {
             dispatchRouteChanged(route);
         }
 
-        if (!enabled && route == sStatic.mSelectedRoute) {
+        if (!enabled && route.isSelected()) {
             // Oops, no longer available. Reselect the default.
             selectDefaultRouteStatic();
         }
@@ -1520,6 +1570,11 @@ public class MediaRouter {
          */
         public int getSupportedTypes() {
             return mSupportedTypes;
+        }
+
+        /** @hide */
+        public boolean matchesTypes(int types) {
+            return (mSupportedTypes & types) != 0;
         }
 
         /**
@@ -1770,7 +1825,7 @@ public class MediaRouter {
             // then report it as connecting even though it has not yet had a chance
             // to move into the CONNECTING state.  Note that routes in the NONE state
             // are assumed to not require an explicit connection lifecycle.
-            if (this == sStatic.mSelectedRoute) {
+            if (isSelected()) {
                 switch (mStatusCode) {
                     case STATUS_AVAILABLE:
                     case STATUS_SCANNING:
@@ -1779,6 +1834,21 @@ public class MediaRouter {
                 }
             }
             return false;
+        }
+
+        /** @hide */
+        public boolean isSelected() {
+            return this == sStatic.mSelectedRoute;
+        }
+
+        /** @hide */
+        public boolean isDefault() {
+            return this == sStatic.mDefaultAudioVideo;
+        }
+
+        /** @hide */
+        public void select() {
+            selectRouteStatic(mSupportedTypes, this, true);
         }
 
         void setStatusInt(CharSequence status) {

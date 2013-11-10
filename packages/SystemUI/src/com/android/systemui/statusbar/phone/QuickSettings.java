@@ -37,8 +37,8 @@ import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
-import android.graphics.drawable.LevelListDrawable;
 import android.hardware.display.DisplayManager;
+import android.media.MediaRouter;
 import android.hardware.display.WifiDisplayStatus;
 import android.net.ConnectivityManager;
 import android.net.wifi.WifiManager;
@@ -64,6 +64,7 @@ import android.view.WindowManagerGlobal;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.android.internal.app.MediaRouteDialogPresenter;
 import com.android.systemui.R;
 import com.android.systemui.statusbar.phone.QuickSettingsModel.ActivityState;
 import com.android.systemui.statusbar.phone.QuickSettingsModel.BluetoothState;
@@ -510,7 +511,11 @@ class QuickSettings {
             rssiTile.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    startSettingsActivity(android.provider.Settings.ACTION_DATA_ROAMING_SETTINGS);
+                    Intent intent = new Intent();
+                    intent.setComponent(new ComponentName(
+                            "com.android.settings",
+                            "com.android.settings.Settings$DataUsageSummaryActivity"));
+                    startSettingsActivity(intent);
                 }
             });
             mModel.addRSSITile(rssiTile, new NetworkActivityCallback() {
@@ -789,7 +794,21 @@ class QuickSettings {
         remoteDisplayTile.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                startSettingsActivity(android.provider.Settings.ACTION_WIFI_DISPLAY_SETTINGS);
+                collapsePanels();
+
+                final Dialog[] dialog = new Dialog[1];
+                dialog[0] = MediaRouteDialogPresenter.createDialog(mContext,
+                        MediaRouter.ROUTE_TYPE_REMOTE_DISPLAY,
+                        new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        dialog[0].dismiss();
+                        startSettingsActivity(
+                                android.provider.Settings.ACTION_WIFI_DISPLAY_SETTINGS);
+                    }
+                });
+                dialog[0].getWindow().setType(WindowManager.LayoutParams.TYPE_VOLUME_OVERLAY);
+                dialog[0].show();
             }
         });
         mModel.addRemoteDisplayTile(remoteDisplayTile,
