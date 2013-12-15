@@ -2741,7 +2741,6 @@ public final class Settings {
 
         /**
          * Whether or not to show circle battery around the lockscreen ring
-         * Show the content behind the lockscreen
          * @hide
          */
         public static final String BATTERY_AROUND_LOCKSCREEN_RING = "battery_around_lockscreen_ring";
@@ -2757,13 +2756,6 @@ public final class Settings {
          * @hide
          */
         public static final String VOLUME_MUSIC_CONTROLS = "volume_music_controls";
-
-        /**
-
-         * Setting to show the battery percentage text
-         * @hide
-         */
-        public static final String STATUS_BAR_BATTERY_STYLE = "status_bar_battery_style";
 
         /**
          * Settings to backup. This is here so that it's in the same place as the settings
